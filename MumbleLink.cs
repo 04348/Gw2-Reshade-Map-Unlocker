@@ -7,57 +7,46 @@ using System.IO.MemoryMappedFiles;
 using System.Net;
 using System.Runtime.InteropServices;
 
-namespace Gw2GraphicalOverall
-{
-    class MumbleLink : IDisposable
-    {
+namespace Gw2GraphicalOverall {
+    class MumbleLink : IDisposable {
         const string MumbleLinkFile = "MumbleLink";
         static readonly int LinkedMemSize = Marshal.SizeOf(typeof(LinkedMem));
 
         MemoryMappedFile f;
         MemoryMappedViewAccessor view;
 
-        private MumbleLink(MemoryMappedFile f)
-        {
+        private MumbleLink(MemoryMappedFile f) {
             this.f = f;
             this.view = f.CreateViewAccessor();
         }
 
-        public static MumbleLink Open()
-        {
+        public static MumbleLink Open() {
             return new MumbleLink(MemoryMappedFile.CreateOrOpen("MumbleLink", LinkedMemSize));
         }
 
-        public void Read(out LinkedMem state, out GW2Context context)
-        {
+        public void Read(out LinkedMem state, out GW2Context context) {
             state = UnmarshalRead<LinkedMem>(view);
             context = UnmarshalRead<GW2Context>(state.context);
         }
 
-        static T UnmarshalRead<T>(MemoryMappedViewAccessor view) where T : struct
-        {
+        static T UnmarshalRead<T>(MemoryMappedViewAccessor view) where T : struct {
             byte[] data = new byte[Marshal.SizeOf(typeof(LinkedMem))];
             view.ReadArray(0, data, 0, data.Length);
             return UnmarshalRead<T>(data);
         }
 
-        static T UnmarshalRead<T>(byte[] data) where T : struct
-        {
+        static T UnmarshalRead<T>(byte[] data) where T : struct {
             GCHandle pin = GCHandle.Alloc(data, GCHandleType.Pinned);
-            try
-            {
+            try {
                 return (T)Marshal.PtrToStructure(pin.AddrOfPinnedObject(), typeof(T));
-            }
-            finally
-            {
+            } finally {
                 pin.Free();
             }
         }
 
         /* From https://github.com/arenanet/api-cdi/blob/master/mumble.md */
         [StructLayout(LayoutKind.Sequential)]
-        public struct GW2Context
-        {
+        public struct GW2Context {
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 28)]
             public byte[] serverAddress; // contains sockaddr_in or sockaddr_in6
             public uint mapId;
@@ -69,8 +58,7 @@ namespace Gw2GraphicalOverall
 
         /* From http://wiki.mumble.info/wiki/Link */
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        public struct LinkedMem
-        {
+        public struct LinkedMem {
             public UInt32 uiVersion;
             public UInt32 uiTick;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
@@ -96,8 +84,7 @@ namespace Gw2GraphicalOverall
             public string description;
         };
 
-        public void Dispose()
-        {
+        public void Dispose() {
             f.Dispose();
         }
     }

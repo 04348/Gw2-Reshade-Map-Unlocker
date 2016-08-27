@@ -9,130 +9,101 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Gw2GraphicalOverall
-{
-    class Program
-    {
-        public const short      PollIntervalMs = 100; // Prevent ReShade from disregarding changes by sleeping this long after each change
-        public const short      WriteDelayMs = 5000; // Proclaim inactivity after this period without Mumble Link updates
-        const int               ActivityTimeoutMs = 5 * 60 * 1000;
-        static string           fileName = "gw2map.h";
-        static string           launch = ".\\Gw2-64.exe";
-        static string           launchArgs = null;
-        static bool             hide = true;
-        static Process          game = null;
+namespace Gw2GraphicalOverall {
+    class Program {
+        public const short PollIntervalMs = 100; // Prevent ReShade from disregarding changes by sleeping this long after each change
+        public const short WriteDelayMs = 5000; // Proclaim inactivity after this period without Mumble Link updates
+        const int ActivityTimeoutMs = 5 * 60 * 1000;
+        static string fileName = "gw2map.h";
+        static string launch = ".\\Gw2-64.exe";
+        static string logFile = ".\\Gw2GO.log";
+        static string launchArgs = null;
+        static Process game = null;
 
         static string oldContents = "";
 
+        static void Main(string[] args) {
+            ShowWindow(GetConsoleWindow(), ShowWindowCommands.Hide);
+            System.IO.File.WriteAllText(logFile, "GuildWars 2 : Graphical Overhaul\n");
 
-        static void Main(string[] args)
-        {
-            if (!ParseArgs(args))
-            {
+            if (!ParseArgs(args)) {
                 PrintUsage();
                 return;
             }
-            if (launch != null)
-            {
-                try
-                {
-                    Console.WriteLine("Launching \"{0}\" {1}", launch, launchArgs);
+            if (launch != null) {
+                try {
+                    Program.log("Launching Gw2");
                     game = Process.Start(launch, launchArgs);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine(ex.Message);
-                    Console.Error.WriteLine("\nLaunch failed. Press enter to exit.");
-                    Console.ReadLine();
-                    return;
+                } catch (Exception ex) {
+                    Program.log(ex.Message);
+                    Program.log("Launch failed");
                 }
             }
-
-            Console.WriteLine("Maintaining {0} with map data from Guild Wars 2 "
-                              + "using the Mumble Link API", fileName);
-            if (hide) ShowWindow(GetConsoleWindow(), ShowWindowCommands.Hide);
 
             Unlocker.Execute();
 
-            using (var ml = MumbleLink.Open())
-            {
-                try
-                {
+            using (var ml = MumbleLink.Open()) {
+                try {
                     MainLoop(fileName, ml);
-                }
-                catch (UnauthorizedAccessException ex)
-                {
-                    if (hide) ShowWindow(GetConsoleWindow(), ShowWindowCommands.Normal);
-                    Console.WriteLine(ex.Message);
-                    if (!isAdministrator())
-                    {
-                        try
-                        {
+                } catch (UnauthorizedAccessException ex) {
+                    Program.log(string.Format((ex.Message)));
+                    if (!isAdministrator()) {
+                        try {
                             elevate(args);
                             return;
-                        }
-                        catch (Exception) { }
+                        } catch (Exception) { }
                     }
-                    Console.WriteLine("\nPermission was denied. Press enter to exit.");
-                    Console.ReadLine();
+                    Program.log("Permission was denied");
                     return;
                 }
             }
         }
 
-        private static void PrintUsage()
-        {
-            Console.Error.WriteLine("Command-line usage:");
-            Console.Error.WriteLine("  {0} [/hide] [/launch [program]] [/launchargs {args}]"
-                + " [file]", System.AppDomain.CurrentDomain.FriendlyName);
-            Console.Error.WriteLine("    Maintain {file} with map data from Guild Wars 2."
-                + "{file} defaults to \"gw2map.h\".");
-            Console.Error.WriteLine("");
-            Console.Error.WriteLine("  /hide:");
-            Console.Error.WriteLine("    Hide console window");
-            Console.Error.WriteLine("  /launch [program]:");
-            Console.Error.WriteLine("    Start {program}, and run until it quits."
-                + " {program} defaults to \"..\\Gw2.exe\".");
-            Console.Error.WriteLine("  /launchargs {args}:");
-            Console.Error.WriteLine("    When launching a program with /launch,"
-                + " pass it {args} as arguments.");
+        public static void log(String str) {
+            File.AppendAllText(logFile, DateTime.Now.ToString() + " | " + str + Environment.NewLine);
         }
 
-        private static bool ParseArgs(string[] args)
-        {
-            for (int i = 0; i < args.Length; i++)
-            {
-                if (args[i].StartsWith("/") || args[i].StartsWith("-"))
-                {
+        private static void PrintUsage() {
+            Program.log(string.Format("Command-line usage:"));
+            Program.log(string.Format("  {0} [/hide] [/launch [program]] [/launchargs {args}]"
+                + " [file]", System.AppDomain.CurrentDomain.FriendlyName));
+            Program.log(string.Format("    Maintain {file} with map data from Guild Wars 2."
+                + "{file} defaults to \"gw2map.h\"."));
+            Program.log(string.Format(""));
+            Program.log(string.Format("  /hide:"));
+            Program.log(string.Format("    Hide console window"));
+            Program.log(string.Format("  /launch [program]:"));
+            Program.log(string.Format("    Start {program}, and run until it quits."
+                + " {program} defaults to \"..\\Gw2.exe\"."));
+            Program.log(string.Format("  /launchargs {args}:"));
+            Program.log(string.Format("    When launching a program with /launch,"
+                + " pass it {args} as arguments."));
+        }
+
+        private static bool ParseArgs(string[] args) {
+            for (int i = 0; i < args.Length; i++) {
+                if (args[i].StartsWith("/") || args[i].StartsWith("-")) {
                     string option = args[i].TrimStart('/', '-');
-                    switch (option)
-                    {
+                    switch (option) {
                         case "launch":
                             if (i != args.Length - 1) launch = args[++i];
                             break;
                         case "launchargs":
-                            if (i == args.Length - 1)
-                            {
-                                Console.Error.WriteLine("Option launchargs needs an argument");
+                            if (i == args.Length - 1) {
+                                Program.log("Option launchargs needs an argument");
                                 return false;
-                            }
-                            else {
+                            } else {
                                 launchArgs = args[++i];
                             }
                             break;
-                        case "show":
-                            hide = false;
-                            break;
                         default:
-                            Console.Error.WriteLine("Unknown option {0}", args[i]);
+                            Program.log(string.Format("Unknown option {0}", args[i]));
                             return false;
                     }
-                }
-                else {
-                    if (i != args.Length - 1)
-                    {
-                        Console.Error.WriteLine("Too many files given: {0}",
-                            String.Join(" ", args, i, args.Length - i));
+                } else {
+                    if (i != args.Length - 1) {
+                        Program.log(string.Format("Too many files given: {0}",
+                            String.Join(" ", args, i, args.Length - i)));
                         return false;
                     }
                     fileName = args[i];
@@ -141,8 +112,7 @@ namespace Gw2GraphicalOverall
             return true;
         }
 
-        enum ShowWindowCommands : int
-        {
+        enum ShowWindowCommands : int {
             Hide = 0,
             Normal = 1,
         }
@@ -152,24 +122,17 @@ namespace Gw2GraphicalOverall
         [DllImport("kernel32.dll")]
         static extern IntPtr GetConsoleWindow();
 
-        private static void MainLoop(string fileName, MumbleLink ml)
-        {
-            while (!ShouldExit())
-            {
+        private static void MainLoop(string fileName, MumbleLink ml) {
+            while (!ShouldExit()) {
                 MumbleLink.LinkedMem state;
                 MumbleLink.GW2Context context;
                 ml.Read(out state, out context);
 
                 string newContents = genContents(state, context);
-                if (newContents != oldContents)
-                {
+                if (newContents != oldContents) {
                     File.WriteAllText(fileName, newContents);
 
                     DayNightCycle.TimeOfDay tod = DayNightCycle.Classify();
-                    Console.WriteLine("{0}: Updated file: GW2MapId = {1}, "
-                                + "GW2TOD = {2}, GW2Active = {3}.",
-                        DateTime.Now,
-                        context.mapId, (int)tod, active ? 1 : 0);
 
                     oldContents = newContents;
                     Thread.Sleep(WriteDelayMs);
@@ -178,10 +141,8 @@ namespace Gw2GraphicalOverall
             }
         }
 
-        private static bool ShouldExit()
-        {
-            if (game != null)
-            {
+        private static bool ShouldExit() {
+            if (game != null) {
                 if (game.HasExited) return true;
             }
             return false;
@@ -196,8 +157,7 @@ namespace Gw2GraphicalOverall
         static bool active;
 
         private static string genContents(
-            MumbleLink.LinkedMem state, MumbleLink.GW2Context context)
-        {
+            MumbleLink.LinkedMem state, MumbleLink.GW2Context context) {
             currentTick++;
             if (lastUiTickValue != state.uiTick) lastChangedTick = currentTick;
             lastUiTickValue = state.uiTick;
@@ -214,8 +174,7 @@ namespace Gw2GraphicalOverall
                     DateTime.Now).TotalSeconds);
         }
 
-        static void elevate(string[] args)
-        {
+        static void elevate(string[] args) {
             // Restart program and run as admin
             string exeName = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
             var startInfo = new ProcessStartInfo(exeName, String.Join(" ", args));
@@ -223,8 +182,7 @@ namespace Gw2GraphicalOverall
             Process.Start(startInfo);
         }
 
-        static bool isAdministrator()
-        {
+        static bool isAdministrator() {
             WindowsIdentity identity = WindowsIdentity.GetCurrent();
             var principal = new WindowsPrincipal(identity);
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
